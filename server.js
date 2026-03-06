@@ -78,11 +78,13 @@ app.use(morgan("dev"));
 // cors configuration
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: [
+      "http://localhost:5173",
+      "https://blood-donor-tracker.vercel.app"
+    ],
     credentials: true,
   })
 );
-
 // body parsing
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
