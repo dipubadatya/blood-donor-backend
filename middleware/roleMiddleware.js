@@ -1,10 +1,13 @@
-/**
- * Role-Based Access Control Middleware
- * Usage: authorize("medical") or authorize("donor", "admin")
- */
-const authorize = (...roles) => {
+// ─────────────────────────────────────────────
+// Role-Based Authorization Middleware
+// Example usage: authorize("medical")
+// or authorize("donor", "admin")
+// ─────────────────────────────────────────────
+
+const authorize = (...allowedRoles) => {
   return (req, res, next) => {
-    // req.user is populated by the protect middleware
+
+    // req.user should already be attached by auth middleware
     if (!req.user) {
       return res.status(401).json({
         success: false,
@@ -12,10 +15,11 @@ const authorize = (...roles) => {
       });
     }
 
-    if (!roles.includes(req.user.role)) {
+    // Check if user's role is allowed
+    if (!allowedRoles.includes(req.user.role)) {
       return res.status(403).json({
         success: false,
-        message: `Role '${req.user.role}' is not authorized to access this resource`,
+        message: `Access denied for role: ${req.user.role}`,
       });
     }
 
@@ -23,4 +27,6 @@ const authorize = (...roles) => {
   };
 };
 
-module.exports = { authorize };
+module.exports = {
+  authorize,
+};

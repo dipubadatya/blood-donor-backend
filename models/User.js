@@ -1,8 +1,14 @@
+// ─────────────────────────────────────────────
+// User Schema
+// Handles donors and medical staff accounts
+// ─────────────────────────────────────────────
+
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 
 const userSchema = new mongoose.Schema(
   {
+    // ───────── Basic Profile ─────────
     name: {
       type: String,
       required: [true, "Name is required"],
@@ -26,7 +32,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: [true, "Password is required"],
       minlength: [6, "Password must be at least 6 characters"],
-      select: false, // Never return password in queries by default
+      select: false, // never return password in queries
     },
 
     phone: {
@@ -35,11 +41,12 @@ const userSchema = new mongoose.Schema(
       default: "",
     },
 
+    // ───────── Role & Blood Information ─────────
     role: {
       type: String,
       enum: {
         values: ["donor", "medical"],
-        message: "Role must be either donor or medical",
+        message: "Role must be donor or medical",
       },
       required: [true, "Role is required"],
     },
@@ -55,6 +62,7 @@ const userSchema = new mongoose.Schema(
       },
     },
 
+    // ───────── Geo Location (GeoJSON) ─────────
     location: {
       type: {
         type: String,
@@ -67,9 +75,55 @@ const userSchema = new mongoose.Schema(
       },
     },
 
+    // Whether donor is currently available
     isAvailable: {
       type: Boolean,
       default: true,
+    },
+
+    // ───────── Donation Eligibility ─────────
+    lastDonationDate: {
+      type: Date,
+      default: null,
+    },
+
+    eligibilityStatus: {
+      type: String,
+      enum: ["eligible", "ineligible"],
+      default: "eligible",
+    },
+
+    nextEligibleDate: {
+      type: Date,
+      default: null,
+    },
+
+    // ───────── Reputation Metrics ─────────
+    reliabilityScore: {
+      type: Number,
+      default: 100,
+      min: 0,
+      max: 100,
+    },
+
+    completedDonations: {
+      type: Number,
+      default: 0,
+    },
+
+    responseRate: {
+      type: Number,
+      default: 100,
+    },
+
+    totalRequestsReceived: {
+      type: Number,
+      default: 0,
+    },
+
+    totalRequestsAccepted: {
+      type: Number,
+      default: 0,
     },
   },
   {
@@ -77,26 +131,44 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-// ─── 2dsphere Index for Geospatial Queries ───
+// ─────────────────────────────────────────────
+// Indexes
+// ─────────────────────────────────────────────
+
+// Geo index for location based donor search
 userSchema.index({ location: "2dsphere" });
 
-// ─── Hash Password Before Saving ───
+// Optimized filtering for donor search
+userSchema.index({
+  role: 1,
+  isAvailable: 1,
+  bloodGroup: 1,
+  eligibilityStatus: 1,
+});
+
+// Fast lookup by email
+
+
+// ─────────────────────────────────────────────
+// Password Hashing Middleware
+// ─────────────────────────────────────────────
 userSchema.pre("save", async function () {
-  // Only hash if password is modified or new
-  if (!this.isModified("password")) {
-    return ;
-  }
+  if (!this.isModified("password")) return;
 
   const salt = await bcrypt.genSalt(12);
   this.password = await bcrypt.hash(this.password, salt);
- 
 });
 
-// ─── Compare Entered Password With Hashed Password ───
+// ─────────────────────────────────────────────
+// Password Comparison Method
+// ─────────────────────────────────────────────
 userSchema.methods.comparePassword = async function (enteredPassword) {
-  return await bcrypt.compare(enteredPassword, this.password);
+  return bcrypt.compare(enteredPassword, this.password);
 };
 
+// ─────────────────────────────────────────────
+// Model Export
+// ─────────────────────────────────────────────
 const User = mongoose.model("User", userSchema);
 
 module.exports = User;

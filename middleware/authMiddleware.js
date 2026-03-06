@@ -1,45 +1,56 @@
+// ─────────────────────────────────────────────
+// Authentication Middleware
+// Protects private routes using JWT
+// ─────────────────────────────────────────────
+
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
 const protect = async (req, res, next) => {
-  let token;
-
-  // Check for Bearer token in the headers
-  if (
-    req.headers.authorization &&
-    req.headers.authorization.startsWith("Bearer")
-  ) {
-    token = req.headers.authorization.split(" ")[1];
-  }
-
-  if (!token) {
-    return res.status(401).json({
-      success: false,
-      message: "Authorization denied, no token provided",
-    });
-  }
-
   try {
-    // Verify token using secret key
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    let token;
 
-    // Fetch user from database and attach to request (excluding password)
-    req.user = await User.findById(decoded.id).select("-password");
+    // Extract token from Authorization header
+    const authHeader = req.headers.authorization;
 
-    if (!req.user) {
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.split(" ")[1];
+    }
+
+    if (!token) {
       return res.status(401).json({
         success: false,
-        message: "User associated with this token no longer exists",
+        message: "Access denied. No token provided",
       });
     }
 
+    // Verify JWT
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Fetch user and attach to request
+    const user = await User.findById(decoded.id).select("-password");
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "User not found for this token",
+      });
+    }
+
+    req.user = user;
+
     next();
+
   } catch (error) {
+    console.error("Auth middleware error:", error.message);
+
     return res.status(401).json({
       success: false,
-      message: "Invalid or expired token",
+      message: "Invalid or expired authentication token",
     });
   }
 };
 
-module.exports = { protect };
+module.exports = {
+  protect,
+};

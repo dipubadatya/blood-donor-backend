@@ -1,8 +1,16 @@
 
 
+// ─────────────────────────────────────────────
+// User Controller
+// Handles profile, availability and location
+// ─────────────────────────────────────────────
+
+
 const User = require("../models/User");
 
-// Toggle donor availability status
+// ─────────────────────────────────────────────
+// Toggle Donor Availability
+// ─────────────────────────────────────────────
 const toggleAvailability = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
@@ -14,7 +22,6 @@ const toggleAvailability = async (req, res) => {
       });
     }
 
-    // Flip the current status
     user.isAvailable = !user.isAvailable;
     await user.save();
 
@@ -23,16 +30,20 @@ const toggleAvailability = async (req, res) => {
       message: `Availability ${user.isAvailable ? "enabled" : "disabled"} successfully`,
       isAvailable: user.isAvailable,
     });
+
   } catch (error) {
-    console.error("Toggle Availability Error:", error);
+    console.error("Toggle availability error:", error);
+
     res.status(500).json({
       success: false,
-      message: "Server error toggling availability",
+      message: "Server error while updating availability",
     });
   }
 };
 
-// Update user's live coordinates
+// ─────────────────────────────────────────────
+// Update User Location
+// ─────────────────────────────────────────────
 const updateLocation = async (req, res) => {
   try {
     const { longitude, latitude } = req.body;
@@ -47,7 +58,6 @@ const updateLocation = async (req, res) => {
     const lng = parseFloat(longitude);
     const lat = parseFloat(latitude);
 
-    // Basic coordinate validation
     if (isNaN(lng) || isNaN(lat)) {
       return res.status(400).json({
         success: false,
@@ -58,11 +68,10 @@ const updateLocation = async (req, res) => {
     if (lng < -180 || lng > 180 || lat < -90 || lat > 90) {
       return res.status(400).json({
         success: false,
-        message: "Invalid coordinate ranges",
+        message: "Coordinates out of valid range",
       });
     }
 
-    // Update the GeoJSON field
     const user = await User.findByIdAndUpdate(
       req.user._id,
       {
@@ -86,8 +95,10 @@ const updateLocation = async (req, res) => {
       message: "Location updated successfully",
       location: user.location,
     });
+
   } catch (error) {
-    console.error("Update Location Error:", error);
+    console.error("Update location error:", error);
+
     res.status(500).json({
       success: false,
       message: "Server error updating location",
@@ -95,10 +106,13 @@ const updateLocation = async (req, res) => {
   }
 };
 
-// Update basic profile info
+// ─────────────────────────────────────────────
+// Update Basic Profile
+// ─────────────────────────────────────────────
 const updateProfile = async (req, res) => {
   try {
     const { name, phone } = req.body;
+
     const updateFields = {};
 
     if (name && name.trim()) updateFields.name = name.trim();
@@ -107,7 +121,7 @@ const updateProfile = async (req, res) => {
     if (Object.keys(updateFields).length === 0) {
       return res.status(400).json({
         success: false,
-        message: "No valid fields to update",
+        message: "No valid fields provided for update",
       });
     }
 
@@ -127,19 +141,12 @@ const updateProfile = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Profile updated successfully",
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-        bloodGroup: user.bloodGroup,
-        location: user.location,
-        isAvailable: user.isAvailable,
-      },
+      user: formatUser(user),
     });
+
   } catch (error) {
-    console.error("Update Profile Error:", error);
+    console.error("Update profile error:", error);
+
     res.status(500).json({
       success: false,
       message: "Server error updating profile",
@@ -147,10 +154,14 @@ const updateProfile = async (req, res) => {
   }
 };
 
-// Get current user profile details
+// ─────────────────────────────────────────────
+// Get Current User Profile
+// ─────────────────────────────────────────────
 const getProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).select("-password -__v");
+    const user = await User.findById(req.user._id)
+      .select("-password -__v")
+      .lean();
 
     if (!user) {
       return res.status(404).json({
@@ -161,20 +172,12 @@ const getProfile = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-        bloodGroup: user.bloodGroup,
-        location: user.location,
-        isAvailable: user.isAvailable,
-        createdAt: user.createdAt,
-      },
+      user: formatUser(user),
     });
+
   } catch (error) {
-    console.error("Get Profile Error:", error);
+    console.error("Get profile error:", error);
+
     res.status(500).json({
       success: false,
       message: "Server error fetching profile",
@@ -182,6 +185,29 @@ const getProfile = async (req, res) => {
   }
 };
 
+// ─────────────────────────────────────────────
+// Helper: Format user response
+// ─────────────────────────────────────────────
+const formatUser = (user) => ({
+  id: user._id,
+  name: user.name,
+  email: user.email,
+  phone: user.phone,
+  role: user.role,
+  bloodGroup: user.bloodGroup,
+  location: user.location,
+  isAvailable: user.isAvailable,
+  reliabilityScore: user.reliabilityScore,
+  eligibilityStatus: user.eligibilityStatus,
+  nextEligibleDate: user.nextEligibleDate,
+  lastDonationDate: user.lastDonationDate,
+  completedDonations: user.completedDonations,
+  createdAt: user.createdAt,
+});
+
+// ─────────────────────────────────────────────
+// Export Controller Functions
+// ─────────────────────────────────────────────
 module.exports = {
   toggleAvailability,
   updateLocation,
